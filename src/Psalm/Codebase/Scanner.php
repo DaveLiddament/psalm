@@ -249,13 +249,15 @@ class Scanner
     /**
      * @return bool
      */
-    public function scanFiles(ClassLikes $classlikes)
+    public function scanFiles(ClassLikes $classlikes, int $pool_size = 1)
     {
+        $time = microtime(true);
+
         $has_changes = false;
 
         while ($this->files_to_scan || $this->classes_to_scan) {
             if ($this->files_to_scan) {
-                if ($this->scanFilePaths()) {
+                if ($this->scanFilePaths($pool_size)) {
                     $has_changes = true;
                 }
             } else {
@@ -263,26 +265,102 @@ class Scanner
             }
         }
 
+        echo 'Scanning took ' . number_format(microtime(true) - $time, 2) . " seconds\n";
+
         return $has_changes;
     }
 
-    private function scanFilePaths() : bool
+    private function scanFilePaths(int $pool_size) : bool
     {
         $filetype_scanners = $this->config->getFiletypeScanners();
-        $files_to_scan = $this->files_to_scan;
+        $files_to_scan = array_filter(
+            $this->files_to_scan,
+            function (string $file_path) : bool {
+                return !isset($this->scanned_files[$file_path])
+                    || (isset($this->files_to_deep_scan[$file_path]) && !$this->scanned_files[$file_path]);
+            }
+        );
         $has_changes = false;
         $this->files_to_scan = [];
 
-        foreach ($files_to_scan as $file_path) {
-            if (!isset($this->scanned_files[$file_path])
-                || (isset($this->files_to_deep_scan[$file_path]) && !$this->scanned_files[$file_path])
-            ) {
+
+
+        $files_to_deep_scan = $this->files_to_deep_scan;
+
+        $scanner_worker =
+            /**
+             * @param int $_
+             * @param string $file_path
+             *
+             * @return void
+             */
+            function ($_, $file_path) use ($filetype_scanners, $files_to_deep_scan) {
                 $this->scanFile(
                     $file_path,
                     $filetype_scanners,
-                    isset($this->files_to_deep_scan[$file_path])
+                    isset($files_to_deep_scan[$file_path])
                 );
-                $has_changes = true;
+            };
+
+        if ($pool_size > 1 && count($files_to_scan) > 40) {
+            $process_file_paths = [];
+
+            $i = 0;
+
+            foreach ($files_to_scan as $file_path) {
+                $process_file_paths[$i % $pool_size][] = $file_path;
+                ++$i;
+            }
+
+            // Run scanning one file at a time, splitting the set of
+            // files up among a given number of child processes.
+            $pool = new \Psalm\Fork\Pool(
+                $process_file_paths,
+                /** @return void */
+                function () {
+                },
+                $scanner_worker,
+                function () {
+                    $project_checker = \Psalm\Checker\ProjectChecker::getInstance();
+                    $statements_provider = $project_checker->codebase->statements_provider;
+
+                    return [
+                        'issues' => \Psalm\IssueBuffer::getIssuesData(),
+                        'changed_members' => $statements_provider->getChangedMembers(),
+                        'unchanged_signature_members' => $statements_provider->getUnchangedSignatureMembers(),
+                        'classlike_storage' => $project_checker->classlike_storage_provider->getAll(),
+                        'file_storage' => $project_checker->file_storage_provider->getAll(),
+                    ];
+                }
+            );
+
+            // Wait for all tasks to complete and collect the results.
+            /**
+             * @var array<int, WorkerData>
+             */
+            $forked_pool_data = $pool->wait();
+
+            $statements_provider = $this->codebase->statements_provider;
+
+            foreach ($forked_pool_data as $pool_data) {
+                \Psalm\IssueBuffer::addIssues($pool_data['issues']);
+
+                $this->codebase->statements_provider->addChangedMembers(
+                    $pool_data['changed_members']
+                );
+                $this->codebase->statements_provider->addUnchangedSignatureMembers(
+                    $pool_data['unchanged_signature_members']
+                );
+
+                $this->codebase->file_storage_provider->addMore($pool_data['file_storage']);
+                $this->codebase->classlike_storage_provider->addMore($pool_data['classlike_storage']);
+            }
+        } else {
+            $i = 0;
+
+            foreach ($files_to_scan as $file_path => $_) {
+                $scanner_worker($i, $file_path);
+                ++$i;
             }
         }
 

@@ -87,6 +87,14 @@ class FileStorageProvider
     }
 
     /**
+     * @param array<string, FileStorage> $more
+     */
+    public function addMore(array $more)
+    {
+        self::$storage = array_merge($more, self::$storage);
+    }
+
+    /**
      * @param  string $file_path
      *
      * @return FileStorage

@@ -214,11 +214,27 @@ class StatementsProvider
     }
 
     /**
+     * @param array<string, array<string, bool>> $more_changed_members
+     */
+    public function addChangedMembers(array $more_changed_members)
+    {
+        $this->changed_members = array_merge($more_changed_members, $this->changed_members);
+    }
+
+    /**
      * @return array<string, array<string, bool>>
      */
     public function getUnchangedSignatureMembers()
     {
         return $this->unchanged_signature_members;
+    }
+
+    /**
+     * @param array<string, array<string, bool>> $more_changed_members
+     */
+    public function addUnchangedSignatureMembers(array $more_unchanged_members)
+    {
+        $this->unchanged_signature_members = array_merge($more_unchanged_members, $this->unchanged_signature_members);
     }
 
     /**
