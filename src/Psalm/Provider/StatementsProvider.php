@@ -257,6 +257,14 @@ class StatementsProvider
     }
 
     /**
+     * @param array<string, array<int, array{0: int, 1: int, 2: int, 3: int}>> $diff_map
+     */
+    public function addDiffMap(array $diff_map)
+    {
+        $this->diff_map = array_merge($diff_map, $this->diff_map);
+    }
+
+    /**
      * @return void
      */
     public function resetDiffs()

@@ -280,10 +280,7 @@ class Scanner
                     || (isset($this->files_to_deep_scan[$file_path]) && !$this->scanned_files[$file_path]);
             }
         );
-        $has_changes = false;
         $this->files_to_scan = [];
-
-
 
         $files_to_deep_scan = $this->files_to_deep_scan;
 
@@ -295,7 +292,6 @@ class Scanner
              * @return void
              */
             function ($_, $file_path) use ($filetype_scanners, $files_to_deep_scan) {
-                echo $file_path . "\n";
                 $this->scanFile(
                     $file_path,
                     $filetype_scanners,
@@ -331,6 +327,7 @@ class Scanner
                         'issues' => \Psalm\IssueBuffer::getIssuesData(),
                         'changed_members' => $statements_provider->getChangedMembers(),
                         'unchanged_signature_members' => $statements_provider->getUnchangedSignatureMembers(),
+                        'diff_map' => $statements_provider->getDiffMap(),
                         'classlike_storage' => $project_checker->classlike_storage_provider->getAll(),
                         'file_storage' => $project_checker->file_storage_provider->getAll(),
                     ];
@@ -354,6 +351,9 @@ class Scanner
                 $this->codebase->statements_provider->addUnchangedSignatureMembers(
                     $pool_data['unchanged_signature_members']
                 );
+                $this->codebase->statements_provider->addDiffMap(
+                    $pool_data['diff_map']
+                );
 
                 $this->codebase->file_storage_provider->addMore($pool_data['file_storage']);
                 $this->codebase->classlike_storage_provider->addMore($pool_data['classlike_storage']);
@@ -371,7 +371,7 @@ class Scanner
             }
         }
 
-        return $has_changes;
+        return (bool) $files_to_scan;
     }
 
     /**
