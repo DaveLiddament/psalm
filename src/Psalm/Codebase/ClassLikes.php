@@ -884,4 +884,41 @@ class ClassLikes
             $this->classlike_references[$fq_class_name_lc]
         );
     }
+
+    public function getThreadData()
+    {
+        return [
+            $this->existing_classlikes_lc,
+            $this->existing_classes_lc,
+            $this->existing_traits_lc,
+            $this->existing_interfaces_lc,
+            $this->existing_classes,
+            $this->trait_nodes,
+            $this->trait_aliases,
+            $this->classlike_references
+        ];
+    }
+
+    public function addThreadData(array $thread_data) : void
+    {
+        list (
+            $existing_classlikes_lc,
+            $existing_classes_lc,
+            $existing_traits_lc,
+            $existing_interfaces_lc,
+            $existing_classes,
+            $trait_nodes,
+            $trait_aliases,
+            $classlike_references
+        ) = $thread_data;
+
+        $this->existing_classlikes_lc = array_merge($existing_classlikes_lc, $this->existing_classlikes_lc);
+        $this->existing_classes_lc = array_merge($existing_classes_lc, $this->existing_classes_lc);
+        $this->existing_traits_lc = array_merge($existing_traits_lc, $this->existing_traits_lc);
+        $this->existing_interfaces_lc = array_merge($existing_interfaces_lc, $this->existing_interfaces_lc);
+        $this->existing_classes = array_merge($existing_classes, $this->existing_classes);
+        $this->trait_nodes = array_merge($trait_nodes, $this->trait_nodes);
+        $this->trait_aliases = array_merge($trait_aliases, $this->trait_aliases);
+        $this->classlike_references = array_merge($classlike_references, $this->classlike_references);
+    }
 }

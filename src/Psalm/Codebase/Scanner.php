@@ -295,6 +295,7 @@ class Scanner
              * @return void
              */
             function ($_, $file_path) use ($filetype_scanners, $files_to_deep_scan) {
+                echo $file_path . "\n";
                 $this->scanFile(
                     $file_path,
                     $filetype_scanners,
@@ -302,7 +303,7 @@ class Scanner
                 );
             };
 
-        if ($pool_size > 1 && count($files_to_scan) > 40) {
+        if ($pool_size > 1 && count($files_to_scan) > 200) {
             $process_file_paths = [];
 
             $i = 0;
@@ -325,6 +326,8 @@ class Scanner
                     $statements_provider = $project_checker->codebase->statements_provider;
 
                     return [
+                        'classlikes_data' => $project_checker->codebase->classlikes->getThreadData(),
+                        'scanner_data' => $project_checker->codebase->scanner->getThreadData(),
                         'issues' => \Psalm\IssueBuffer::getIssuesData(),
                         'changed_members' => $statements_provider->getChangedMembers(),
                         'unchanged_signature_members' => $statements_provider->getUnchangedSignatureMembers(),
@@ -354,6 +357,10 @@ class Scanner
 
                 $this->codebase->file_storage_provider->addMore($pool_data['file_storage']);
                 $this->codebase->classlike_storage_provider->addMore($pool_data['classlike_storage']);
+
+                $this->codebase->classlikes->addThreadData($pool_data['classlikes_data']);
+
+                $this->addThreadData($pool_data['scanner_data']);
             }
         } else {
             $i = 0;
@@ -619,5 +626,45 @@ class Scanner
         }
 
         return true;
+    }
+
+    public function getThreadData() : array
+    {
+        return [
+            $this->files_to_scan,
+            $this->files_to_deep_scan,
+            $this->classes_to_scan,
+            $this->classes_to_deep_scan,
+            $this->store_scan_failure,
+            $this->classlike_files,
+            $this->deep_scanned_classlike_files,
+            $this->scanned_files,
+            $this->reflected_classlikes_lc
+        ];
+    }
+
+    public function addThreadData(array $thread_data)
+    {
+        list(
+            $files_to_scan,
+            $files_to_deep_scan,
+            $classes_to_scan,
+            $classes_to_deep_scan,
+            $store_scan_failure,
+            $classlike_files,
+            $deep_scanned_classlike_files,
+            $scanned_files,
+            $reflected_classlikes_lc
+        ) = $thread_data;
+
+        $this->files_to_scan = array_merge($files_to_scan, $this->files_to_scan);
+        $this->files_to_deep_scan = array_merge($files_to_deep_scan, $this->files_to_deep_scan);
+        $this->classes_to_scan = array_merge($classes_to_scan, $this->classes_to_scan);
+        $this->classes_to_deep_scan = array_merge($classes_to_deep_scan, $this->classes_to_deep_scan);
+        $this->store_scan_failure = array_merge($store_scan_failure, $this->store_scan_failure);
+        $this->classlike_files = array_merge($classlike_files, $this->classlike_files);
+        $this->deep_scanned_classlike_files = array_merge($deep_scanned_classlike_files, $this->deep_scanned_classlike_files);
+        $this->scanned_files = array_merge($scanned_files, $this->scanned_files);
+        $this->reflected_classlikes_lc = array_merge($reflected_classlikes_lc, $this->reflected_classlikes_lc);
     }
 }
